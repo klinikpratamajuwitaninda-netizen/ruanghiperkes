@@ -1,0 +1,77 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-body);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbars for medical dashboards and mobile lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* Animation utilities for speech waves and character movement */
+@keyframes voicePulse {
+  0%, 100% { height: 6px; opacity: 0.4; }
+  50% { height: 28px; opacity: 1; }
+}
+
+@keyframes characterBreathe {
+  0%, 100% { transform: translateY(0px) scaleY(1); }
+  50% { transform: translateY(-3px) scaleY(1.015); }
+}
+
+@keyframes mouthTalk {
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes walkCycle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(-1.5deg); }
+  75% { transform: translateY(-4px) rotate(1.5deg); }
+}
+
+.animate-voice-bar-1 { animation: voicePulse 0.8s ease-in-out infinite 0.1s; }
+.animate-voice-bar-2 { animation: voicePulse 0.7s ease-in-out infinite 0.3s; }
+.animate-voice-bar-3 { animation: voicePulse 0.9s ease-in-out infinite 0.2s; }
+.animate-voice-bar-4 { animation: voicePulse 0.65s ease-in-out infinite 0.4s; }
+.animate-voice-bar-5 { animation: voicePulse 0.75s ease-in-out infinite 0.15s; }
+
+.animate-breathe {
+  animation: characterBreathe 3.5s ease-in-out infinite;
+}
+
+.animate-mouth {
+  animation: mouthTalk 0.22s ease-in-out infinite;
+}
+
+.animate-walker {
+  animation: walkCycle 0.6s ease-in-out infinite;
+}

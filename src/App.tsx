@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   Stethoscope,
+  Box,
 } from 'lucide-react';
 import { playHospitalSound, stopSpeaking, triggerHaptic } from './utils/speechUtils';
 
@@ -32,7 +33,6 @@ export default function App() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [selectedPatientForAi, setSelectedPatientForAi] = useState<Patient | null>(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Sync dark mode class on document
   useEffect(() => {
@@ -84,24 +84,25 @@ export default function App() {
                 e.preventDefault();
                 setActiveTab('ward');
               }}
-              className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap"
+              className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap"
             >
-              HIPERKES Rajawali Hospital
+              Ruang Belajar HIPERKES
             </a>
           </div>
 
           {/* Zone 2: Navigation Links (single-line, clean unboxed typography) */}
-          <nav className="hidden md:flex items-center gap-6 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
+          <nav className="hidden md:flex items-center gap-6 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
             <button
               onClick={() => {
                 triggerHaptic('light');
                 setActiveTab('ward');
               }}
-              className={`hover:text-sky-600 dark:hover:text-sky-400 transition-colors whitespace-nowrap ${
+              className={`hover:text-sky-600 dark:hover:text-sky-400 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'ward' ? 'text-sky-600 dark:text-sky-400 font-bold' : ''
               }`}
             >
-              30 Pasien Bangsal
+              <Box className="w-4 h-4 text-sky-500" />
+              <span>3D Bangsal 30 Pasien</span>
             </button>
 
             <button
@@ -109,7 +110,7 @@ export default function App() {
               className="hover:text-sky-600 dark:hover:text-sky-400 transition-colors whitespace-nowrap flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-              <span>AI Nurse Voice</span>
+              <span>Tanya dr. Juwita (AI)</span>
             </button>
 
             <button
@@ -152,7 +153,7 @@ export default function App() {
 
             <button
               onClick={handleOpenChecklist}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors shadow-sm whitespace-nowrap flex items-center gap-1.5"
+              className="px-3.5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors shadow-sm whitespace-nowrap flex items-center gap-1.5"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Checklist Keselamatan</span>
@@ -178,15 +179,15 @@ export default function App() {
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 mt-auto py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="text-center sm:text-left">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">
-              Institut Kesehatan Rajawali · Modul HIPERKES & Keselamatan Pasien Keperawatan
+            <p className="font-bold text-slate-700 dark:text-slate-300">
+              Ruang Belajar HIPERKES · Materi Pembelajaran Mahasiswa Keperawatan
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Penyusun: dr. Juwita Ninda Suherman, M.Kes · Safe Care Starts With Safe Work
+              Dosen Pengampu: dr. Juwita Ninda, M.Kes · Institut Kesehatan Rajawali
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
             <button onClick={handleOpenSlides} className="hover:text-sky-600">
               30 Slide
             </button>
@@ -196,7 +197,7 @@ export default function App() {
             </button>
             <span aria-hidden="true">·</span>
             <button onClick={() => setActiveTab('quiz')} className="hover:text-sky-600">
-              30 Soal Evaluasi
+              30 Soal CBT
             </button>
           </div>
         </div>
@@ -214,8 +215,8 @@ export default function App() {
               activeTab === 'ward' ? 'text-sky-600 dark:text-sky-400 font-bold' : 'text-slate-500'
             }`}
           >
-            <Activity className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight">30 Pasien</span>
+            <Box className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight font-medium">3D Bangsal</span>
           </button>
 
           <button
@@ -223,7 +224,7 @@ export default function App() {
             className="flex flex-col items-center justify-center h-full min-h-[44px] min-w-[44px] text-slate-500 hover:text-sky-600"
           >
             <Sparkles className="w-5 h-5 text-sky-500" />
-            <span className="text-[10px] mt-1 tracking-tight">AI Nurse</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">dr. Juwita</span>
           </button>
 
           <button
@@ -231,7 +232,7 @@ export default function App() {
             className="flex flex-col items-center justify-center h-full min-h-[44px] min-w-[44px] text-slate-500 hover:text-sky-600"
           >
             <BookOpen className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight">30 Slide</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">30 Slide</span>
           </button>
 
           <button
@@ -244,7 +245,7 @@ export default function App() {
             }`}
           >
             <FileCheck className="w-5 h-5" />
-            <span className="text-[10px] mt-1 tracking-tight">30 Soal</span>
+            <span className="text-[10px] mt-1 tracking-tight font-medium">30 Soal CBT</span>
           </button>
         </div>
       </div>

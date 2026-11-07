@@ -1,6 +1,6 @@
 {
-  "name": "HIPERKES & Patient Safety Virtual Hospital",
-  "description": "Platform pembelajaran interaktif 30 pasien HIPERKES dan Keselamatan Pasien untuk mahasiswa keperawatan dengan asisten AI perawat bersuara, simulasi lingkungan kerja rumah sakit mobile/Android, materi modul dr. Juwita Ninda Suherman M.Kes, dan 30 soal evaluasi kasus.",
+  "name": "Ruang Belajar HIPERKES",
+  "description": "Ruang Belajar HIPERKES 3D Roblox untuk Mahasiswa Keperawatan bersama dr. Juwita Ninda, M.Kes. Simulasi rumah sakit 30 pasien, materi kuliah 30 slide, modul 7 bab, dan evaluasi 30 soal CBT.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

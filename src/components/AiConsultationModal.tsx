@@ -70,10 +70,10 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
           {
             id: 'init-m',
             sender: 'mentor',
-            senderName: 'Ns. Juwita, Sp.K3RS',
+            senderName: 'dr. Juwita Ninda, M.Kes',
             text: selectedPatient
-              ? `Halo Ners! Kita sedang mengkaji kasus ${selectedPatient.name} (${selectedPatient.bedNumber}) terkait bahaya ${selectedPatient.hazardType} dan ${selectedPatient.skpCategory}. Apa yang ingin Anda diskusikan mengenai hierarki pengendalian dan keselamatan pasien di sini?`
-              : 'Halo Rekan Mahasiswa Keperawatan! Saya Ns. Juwita, siap membimbing Anda seputar konsep HIPERKES, keselamatan kerja di bangsal, dan 6 Sasaran Keselamatan Pasien. Silakan ajukan pertanyaan atau pilih simulasi kasus.',
+              ? `Halo Rekan Mahasiswa Keperawatan! Kita sedang mengkaji kasus ${selectedPatient.name} (${selectedPatient.bedNumber}) terkait bahaya ${selectedPatient.hazardType} dan ${selectedPatient.skpCategory}. Apa yang ingin Anda diskusikan mengenai diagnosis bahaya, hierarki pengendalian risiko, atau keselamatan pasien di sini?`
+              : 'Halo Rekan Mahasiswa Keperawatan! Saya dr. Juwita Ninda, M.Kes, dosen pengampu mata kuliah HIPERKES dan Keselamatan Pasien. Silakan tanyakan hal apa pun seputar keselamatan kerja perawat di rumah sakit, pengendalian bahaya, atau penanganan kasus pasien.',
             timestamp: now,
           },
         ]);
@@ -127,7 +127,7 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
       const newBotMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: chatMode === 'patient' ? 'patient' : 'mentor',
-        senderName: chatMode === 'patient' ? selectedPatient?.name || 'Pasien' : 'Ns. Juwita, Sp.K3RS',
+        senderName: chatMode === 'patient' ? selectedPatient?.name || 'Pasien' : 'dr. Juwita Ninda, M.Kes',
         text: botReply,
         timestamp: botTime,
       };
@@ -148,7 +148,7 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'mentor',
-        senderName: 'Ns. Juwita, Sp.K3RS',
+        senderName: 'dr. Juwita Ninda, M.Kes',
         text: 'Maaf, terjadi kendala koneksi ke server AI. Namun ingat prinsip utama: utamakan keselamatan diri dan pasien sesuai SOP K3RS!',
         timestamp: userTime,
       };
@@ -210,14 +210,14 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-950 flex items-center justify-center text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800">
-              {chatMode === 'mentor' ? 'NJ' : selectedPatient?.name.slice(0, 2) || 'PS'}
+              {chatMode === 'mentor' ? 'DJ' : selectedPatient?.name.slice(0, 2) || 'PS'}
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-                {chatMode === 'mentor' ? 'Konsultasi Ns. Juwita (AI Mentor K3RS)' : `Percakapan Pasien: ${selectedPatient?.name}`}
+                {chatMode === 'mentor' ? 'Konsultasi dr. Juwita Ninda, M.Kes (Dosen Dokter)' : `Percakapan Pasien: ${selectedPatient?.name}`}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {chatMode === 'mentor' ? 'Spesialis K3RS & Keselamatan Pasien' : `${selectedPatient?.bedNumber} · ${selectedPatient?.diagnosis}`}
+                {chatMode === 'mentor' ? 'Dosen & Dokter Spesialis HIPERKES' : `${selectedPatient?.bedNumber} · ${selectedPatient?.diagnosis}`}
               </p>
             </div>
           </div>

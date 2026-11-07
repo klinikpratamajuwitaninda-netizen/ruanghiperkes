@@ -55,11 +55,23 @@ Anda berperan sebagai pasien rumah sakit bernama ${patientContext.name}, usia ${
 Diagnosis: ${patientContext.diagnosis}.
 Kondisi bahaya di sekitar Anda: ${patientContext.nurseSafetyDilemma}.
 Gejala/Keluhan Anda: ${patientContext.patientVoicePrompt}.
-Kepribadian Anda: Bersikaplah wajar sebagai pasien yang sedang dirawat. Gunakan bahasa Indonesia sehari-hari, sopan, kadang menunjukkan rasa cemas, sakit, atau butuh bantuan perawat. Jawablah maksimal 2-3 kalimat agar natural seperti percakapan langsung di tempat tidur pasien.
+Kondisi emosi Anda: ${patientContext.emotion} (${patientContext.emotionDescription}).
+Kepribadian Anda: Bersikaplah wajar sebagai pasien yang sedang dirawat dengan emosi ${patientContext.emotion}. Gunakan bahasa Indonesia sehari-hari, sopan, ekspresif sesuai emosi Anda (misal menahan sakit atau cemas). Jawablah maksimal 2-3 kalimat agar natural seperti percakapan langsung di tempat tidur pasien.
 `;
-          promptText = `Perawat berkata kepada Anda: "${message}". Tanggapilah sebagai pasien ${patientContext.name}.`;
+          promptText = `Perawat berkata kepada Anda: "${message}". Tanggapilah sebagai pasien ${patientContext.name} (${patientContext.emotion}).`;
+        } else if (mode === 'family' && patientContext && patientContext.familyMember) {
+          const fm = patientContext.familyMember;
+          systemPrompt = `
+Anda berperan sebagai anggota keluarga pasien yang sedang menunggu di samping ranjang:
+Nama Anda: ${fm.name} (${fm.relation} dari pasien ${patientContext.name}).
+Catatan perilaku Anda: ${fm.note}.
+Kekhawatiran Anda: ${fm.voicePrompt}.
+Peran Anda dalam keselamatan: ${fm.roleInSafety}.
+Kepribadian Anda: Sangat menyayangi keluarga yang sakit, bersikap sopan kepada ners/dokter, peduli terhadap keselamatan pasien, mengingatkan bila ada hal yang berbahaya di kamar. Berikan tanggapan 2-3 kalimat berbahasa Indonesia wajar dan hangat.
+`;
+          promptText = `Perawat berbicara kepada Anda: "${message}". Tanggapilah sebagai keluarga penunggu ${fm.name} (${fm.relation}).`;
         } else {
-          // Nurse mentor mode
+          // dr. Juwita Ninda, M.Kes mode
           let contextAddition = '';
           if (patientContext) {
             contextAddition = `
@@ -69,9 +81,11 @@ Kategori Bahaya: ${patientContext.hazardType}
 Sasaran Keselamatan Pasien: ${patientContext.skpCategory}
 Isu Keselamatan: ${patientContext.nurseSafetyDilemma}
 Hierarki Pengendalian yang Tepat: ${patientContext.recommendedControl}
+Keluarga Penunggu: ${patientContext.familyMember?.name || '-'} (${patientContext.familyMember?.relation || '-'})
+Nakes Terkait: ${patientContext.attendingStaff?.name || '-'} (${patientContext.attendingStaff?.role || '-'})
 `;
           }
-          promptText = `${contextAddition}\nPertanyaan / Tindakan Mahasiswa: "${message}"\nBerikan tanggapan edukatif singkat, tepat, ramah, dan aplikatif klinis (maksimal 3-4 kalimat).`;
+          promptText = `${contextAddition}\nPertanyaan / Tindakan Mahasiswa: "${message}"\nBerikan bimbingan klinis dokter dosen yang ramah, jelas, aplikatif, dan mendidik mahasiswa keperawatan (maksimal 3-4 kalimat).`;
         }
 
         const response = await ai.models.generateContent({
@@ -94,15 +108,24 @@ Hierarki Pengendalian yang Tepat: ${patientContext.recommendedControl}
     const lower = message.toLowerCase();
     let simulatedReply = '';
 
-    if (mode === 'patient' && patientContext) {
+    if (mode === 'family' && patientContext && patientContext.familyMember) {
+      const fm = patientContext.familyMember;
       if (lower.includes('halo') || lower.includes('selamat') || lower.includes('pagi') || lower.includes('siang') || lower.includes('malam')) {
-        simulatedReply = `Halo Suster/Ners. Terima kasih sudah memeriksa saya di ${patientContext.room}. Badan saya masih agak lemas, Sus.`;
+        simulatedReply = `Halo Ners, saya ${fm.name} (${fm.relation}). Terima kasih sudah datang mengecek bapak/ibu kami di ruangan ini.`;
+      } else if (lower.includes('bantu') || lower.includes('jaga') || lower.includes('bel') || lower.includes('panggil')) {
+        simulatedReply = `Iya Ners, saya akan selalu mendampingi di samping tempat tidur. ${fm.roleInSafety}. Bila bapak butuh apa-apa, saya langsung tekan bel perawat.`;
+      } else {
+        simulatedReply = `${fm.voicePrompt} Kami sangat mengandalkan arahan dan bantuan dari Ners demi kesembuhan keluarga kami.`;
+      }
+    } else if (mode === 'patient' && patientContext) {
+      if (lower.includes('halo') || lower.includes('selamat') || lower.includes('pagi') || lower.includes('siang') || lower.includes('malam')) {
+        simulatedReply = `Halo Suster/Ners. Terima kasih sudah memeriksa saya di ${patientContext.room}. Badan saya rasanya ${patientContext.emotion.toLowerCase()}, Sus.`;
       } else if (lower.includes('sakit') || lower.includes('keluhan') || lower.includes('kondisi') || lower.includes('rasa')) {
         simulatedReply = `${patientContext.patientVoicePrompt} Mohon dibantu ya Sus agar saya merasa lebih aman dan nyaman.`;
       } else if (lower.includes('obat') || lower.includes('suntik') || lower.includes('infus')) {
         simulatedReply = `Iya Sus, tolong dicek benar-benar nama saya di gelang ya. Tadi saya agak was-was melihat jarum dan kabel di sekitar tempat tidur.`;
       } else if (lower.includes('bantu') || lower.includes('duduk') || lower.includes('pindah') || lower.includes('jalan')) {
-        simulatedReply = `Tolong bantu saya pelan-pelan ya Ners. Pinggang dan kaki saya masih belum kuat untuk menopang beban sendiri.`;
+        simulatedReply = `Tolong bantu saya pelan-pelan ya Ners. Tubuh saya masih ${patientContext.emotion.toLowerCase()} dan lemas untuk menopang beban sendiri.`;
       } else {
         simulatedReply = `Terima kasih atas perhatiannya Ners. Saya merasa jauh lebih tenang setelah perawat menjelaskan tindakan keselamatan ini dengan baik.`;
       }

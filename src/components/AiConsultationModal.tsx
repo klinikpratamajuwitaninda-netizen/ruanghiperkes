@@ -25,7 +25,7 @@ import {
 
 interface Message {
   id: string;
-  sender: 'user' | 'mentor' | 'patient';
+  sender: 'user' | 'mentor' | 'patient' | 'family';
   senderName: string;
   text: string;
   timestamp: string;
@@ -42,7 +42,7 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
   onClose,
   selectedPatient,
 }) => {
-  const [chatMode, setChatMode] = useState<'mentor' | 'patient'>('mentor');
+  const [chatMode, setChatMode] = useState<'mentor' | 'patient' | 'family'>('mentor');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +51,7 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const speechRecognizerRef = useRef<any>(null);
 
-  // Initialize welcome message when modal opens or patient changes
+  // Initialize welcome message when modal opens or patient/mode changes
   useEffect(() => {
     if (isOpen) {
       const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -60,8 +60,18 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
           {
             id: 'init-p',
             sender: 'patient',
-            senderName: selectedPatient.name,
+            senderName: `${selectedPatient.name} (${selectedPatient.emotion})`,
             text: `Halo Suster/Ners. Saya ${selectedPatient.name} di ${selectedPatient.bedNumber}. ${selectedPatient.patientVoicePrompt}`,
+            timestamp: now,
+          },
+        ]);
+      } else if (selectedPatient && chatMode === 'family') {
+        setMessages([
+          {
+            id: 'init-f',
+            sender: 'family',
+            senderName: `${selectedPatient.familyMember.name} (${selectedPatient.familyMember.relation})`,
+            text: `Halo Suster/Ners, saya ${selectedPatient.familyMember.name} (${selectedPatient.familyMember.relation} dari ${selectedPatient.name}). ${selectedPatient.familyMember.voicePrompt}`,
             timestamp: now,
           },
         ]);
@@ -124,10 +134,17 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
       const botReply = data.reply || 'Baik, perhatikan selalu protokol keselamatan K3RS.';
 
       const botTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      let senderName = 'dr. Juwita Ninda, M.Kes';
+      if (chatMode === 'patient') {
+        senderName = selectedPatient ? `${selectedPatient.name} (${selectedPatient.emotion})` : 'Pasien';
+      } else if (chatMode === 'family') {
+        senderName = selectedPatient ? `${selectedPatient.familyMember.name} (${selectedPatient.familyMember.relation})` : 'Keluarga Pasien';
+      }
+
       const newBotMsg: Message = {
         id: (Date.now() + 1).toString(),
-        sender: chatMode === 'patient' ? 'patient' : 'mentor',
-        senderName: chatMode === 'patient' ? selectedPatient?.name || 'Pasien' : 'dr. Juwita Ninda, M.Kes',
+        sender: chatMode,
+        senderName,
         text: botReply,
         timestamp: botTime,
       };
@@ -135,10 +152,20 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
       setMessages((prev) => [...prev, newBotMsg]);
       triggerHaptic('medium');
 
-      // Speak reply out loud with natural Indonesian voice
+      // Speak reply out loud with natural Indonesian voice & emotions
+      let voicePitch = 1.05;
+      let voiceRate = 1.0;
+      if (chatMode === 'patient' && selectedPatient) {
+        voicePitch = selectedPatient.patientVoicePitch;
+        voiceRate = selectedPatient.patientVoiceRate;
+      } else if (chatMode === 'family' && selectedPatient) {
+        voicePitch = selectedPatient.familyMember.voicePitch;
+        voiceRate = 0.95;
+      }
+
       speakIndonesian(botReply, {
-        pitch: chatMode === 'patient' ? selectedPatient?.patientVoicePitch ?? 1.0 : 1.05,
-        rate: chatMode === 'patient' ? selectedPatient?.patientVoiceRate ?? 0.95 : 1.0,
+        pitch: voicePitch,
+        rate: voiceRate,
         onStart: () => setIsSpeakingActive(true),
         onEnd: () => setIsSpeakingActive(false),
         onError: () => setIsSpeakingActive(false),
@@ -190,61 +217,133 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
     }
   };
 
-  const quickPrompts = selectedPatient
-    ? [
-        `Apa bahaya utama pada pasien ${selectedPatient.name}?`,
-        'Bagaimana hierarki pengendalian yang paling tepat?',
-        'Jelaskan dampak kelalaian kasus ini pada keselamatan pasien!',
-      ]
-    : [
+  const getQuickPrompts = () => {
+    if (!selectedPatient) {
+      return [
         'Bagaimana mencegah tertusuk jarum di bangsal?',
         'Jelaskan konsep "Dua Keselamatan, Satu Sistem"!',
         'Apa langkah pertolongan pertama percikan darah ke mata?',
         'Bagaimana posisi ergonomis saat memindahkan pasien?',
       ];
+    }
+    if (chatMode === 'patient') {
+      return [
+        `Bagaimana kondisi Bapak/Ibu sekarang?`,
+        'Apakah ada rasa nyeri atau tidak nyaman?',
+        'Jangan turun ranjang sendirian ya Pak/Bu, panggil kami lewat bel.',
+        'Kami akan bantu atur posisi tidur agar lebih nyaman.',
+      ];
+    }
+    if (chatMode === 'family') {
+      return [
+        `Halo ${selectedPatient.familyMember.name}, apakah ada yang bisa kami bantu?`,
+        'Mohon selalu pastikan pengaman ranjang terpasang saat ditinggal.',
+        'Bagaimana nafsu makan dan istirahat pasien hari ini?',
+        'Bila infus bunyi atau pasien ingin ke toilet, segera tekan bel ya Bu/Pak.',
+      ];
+    }
+    return [
+      `Apa bahaya utama pada pasien ${selectedPatient.name}?`,
+      'Bagaimana hierarki pengendalian yang paling tepat?',
+      'Jelaskan dampak kelalaian kasus ini pada keselamatan pasien!',
+      'Bagaimana SOP penanganan APD & limbah medis untuk kasus ini?',
+    ];
+  };
+
+  const quickPrompts = getQuickPrompts();
+
+  const getHeaderInfo = () => {
+    if (chatMode === 'mentor') {
+      return {
+        initials: 'DJ',
+        bg: 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+        title: 'dr. Juwita Ninda, M.Kes',
+        subtitle: selectedPatient
+          ? `Membimbing Kasus ${selectedPatient.name} (${selectedPatient.bedNumber})`
+          : 'Dosen & Dokter Spesialis HIPERKES RS',
+      };
+    }
+    if (chatMode === 'patient' && selectedPatient) {
+      return {
+        initials: selectedPatient.name.slice(0, 2),
+        bg: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+        title: `${selectedPatient.name} ${selectedPatient.emotionEmoji}`,
+        subtitle: `Emosi: ${selectedPatient.emotion} · ${selectedPatient.bedNumber} · ${selectedPatient.room}`,
+      };
+    }
+    if (chatMode === 'family' && selectedPatient) {
+      return {
+        initials: selectedPatient.familyMember.name.slice(0, 2),
+        bg: 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+        title: `${selectedPatient.familyMember.name} (${selectedPatient.familyMember.relation})`,
+        subtitle: `Penunggu Pasien ${selectedPatient.name} · ${selectedPatient.bedNumber}`,
+      };
+    }
+    return {
+      initials: 'DJ',
+      bg: 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+      title: 'dr. Juwita Ninda, M.Kes',
+      subtitle: 'Dosen & Dokter Spesialis HIPERKES',
+    };
+  };
+
+  const headerInfo = getHeaderInfo();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col h-[90vh] max-h-[720px] overflow-hidden">
         {/* Modal Top Bar */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-950 flex items-center justify-center text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800">
-              {chatMode === 'mentor' ? 'DJ' : selectedPatient?.name.slice(0, 2) || 'PS'}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border shrink-0 ${headerInfo.bg}`}>
+              {headerInfo.initials}
             </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-                {chatMode === 'mentor' ? 'Konsultasi dr. Juwita Ninda, M.Kes (Dosen Dokter)' : `Percakapan Pasien: ${selectedPatient?.name}`}
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+                {headerInfo.title}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {chatMode === 'mentor' ? 'Dosen & Dokter Spesialis HIPERKES' : `${selectedPatient?.bedNumber} · ${selectedPatient?.diagnosis}`}
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {headerInfo.subtitle}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Mode switch if a patient is selected */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* 3-way mode switch if a patient is selected */}
             {selectedPatient && (
-              <div className="flex items-center bg-slate-200 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+              <div className="flex items-center bg-slate-200 dark:bg-slate-800 p-0.5 rounded-xl text-xs">
                 <button
                   onClick={() => setChatMode('mentor')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                     chatMode === 'mentor'
                       ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-300 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400'
                   }`}
+                  title="Konsultasi Dosen Dokter"
                 >
-                  AI Mentor
+                  dr. Juwita
                 </button>
                 <button
                   onClick={() => setChatMode('patient')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                     chatMode === 'patient'
-                      ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-300 shadow-sm'
+                      ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-300 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400'
                   }`}
+                  title="Komunikasi dengan Pasien"
                 >
                   Pasien
+                </button>
+                <button
+                  onClick={() => setChatMode('family')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    chatMode === 'family'
+                      ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                  title="Interaksi Keluarga Pasien"
+                >
+                  Keluarga
                 </button>
               </div>
             )}
@@ -261,28 +360,34 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
           </div>
         </div>
 
-        {/* Top Mentor Visual Banner */}
-        {chatMode === 'mentor' && (
-          <div className="bg-sky-50 dark:bg-sky-950/40 px-4 py-2 border-b border-sky-100 dark:border-sky-900/40 flex items-center justify-between text-xs text-sky-900 dark:text-sky-200">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
-              <span>
-                Asisten AI bersuara natural terintegrasi kurikulum dr. Juwita Ninda Suherman, M.Kes.
-              </span>
-            </div>
-            {isSpeakingActive && (
-              <button
-                onClick={() => {
-                  stopSpeaking();
-                  setIsSpeakingActive(false);
-                }}
-                className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 hover:underline"
-              >
-                <VolumeX className="w-3.5 h-3.5" /> Stop Suara
-              </button>
-            )}
+        {/* Dynamic Context Banner */}
+        <div className={`px-4 py-2 border-b flex items-center justify-between text-xs ${
+          chatMode === 'mentor'
+            ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-100 dark:border-sky-900/40 text-sky-900 dark:text-sky-200'
+            : chatMode === 'patient'
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900/40 text-amber-900 dark:text-amber-200'
+            : 'bg-purple-50 dark:bg-purple-950/40 border-purple-100 dark:border-purple-900/40 text-purple-900 dark:text-purple-200'
+        }`}>
+          <div className="flex items-center gap-2 truncate">
+            <Sparkles className="w-4 h-4 shrink-0" />
+            <span className="truncate">
+              {chatMode === 'mentor' && 'Bimbingan dokter pengampu HIPERKES dr. Juwita Ninda, M.Kes'}
+              {chatMode === 'patient' && selectedPatient && `Berbicara langsung dengan ${selectedPatient.name} (${selectedPatient.emotionDescription})`}
+              {chatMode === 'family' && selectedPatient && `Interaksi dengan ${selectedPatient.familyMember.name} · ${selectedPatient.familyMember.note}`}
+            </span>
           </div>
-        )}
+          {isSpeakingActive && (
+            <button
+              onClick={() => {
+                stopSpeaking();
+                setIsSpeakingActive(false);
+              }}
+              className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 shrink-0 hover:underline"
+            >
+              <VolumeX className="w-3.5 h-3.5" /> Stop Suara
+            </button>
+          )}
+        </div>
 
         {/* Chat Messages Log */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/50">
@@ -302,6 +407,8 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
                       ? 'bg-sky-600 text-white rounded-tr-none'
                       : msg.sender === 'patient'
                       ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 border border-amber-200 dark:border-amber-900 rounded-tl-none'
+                      : msg.sender === 'family'
+                      ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-950 dark:text-purple-100 border border-purple-200 dark:border-purple-900 rounded-tl-none'
                       : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-tl-none'
                   }`}
                 >
@@ -314,7 +421,7 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
           {isLoading && (
             <div className="flex items-center gap-2 text-xs text-slate-400 p-2">
               <div className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
-              <span>AI sedang merumuskan jawaban klinis...</span>
+              <span>AI sedang merespons...</span>
             </div>
           )}
 
@@ -358,8 +465,10 @@ export const AiConsultationModal: React.FC<AiConsultationModalProps> = ({
               isListeningMic
                 ? 'Silakan bicara ke mikrofon...'
                 : chatMode === 'mentor'
-                ? 'Ketik pertanyaan K3RS atau keselamatan pasien...'
-                : `Bicara dengan pasien ${selectedPatient?.name}...`
+                ? 'Ketik pertanyaan K3RS atau konsultasi ke dr. Juwita...'
+                : chatMode === 'patient'
+                ? `Bicara dengan pasien ${selectedPatient?.name}...`
+                : `Bicara dengan keluarga ${selectedPatient?.familyMember.name}...`
             }
             className="flex-1 text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
           />

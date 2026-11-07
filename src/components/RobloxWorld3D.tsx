@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { PATIENTS_DATA, Patient } from '../data/patientsData';
+import { PATIENTS_DATA, Patient, HOSPITAL_STAFF, StaffCharacter } from '../data/patientsData';
 import {
   Volume2,
   VolumeX,
@@ -17,6 +17,8 @@ import {
   Maximize2,
   Minimize2,
   HelpCircle,
+  Users,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   speakIndonesian,
@@ -40,7 +42,9 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
   const [selectedPatient, setSelectedPatient] = useState<Patient>(PATIENTS_DATA[0]);
   const [cameraMode, setCameraMode] = useState<'follow' | 'orbit'>('follow');
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [isFamilySpeaking, setIsFamilySpeaking] = useState(false);
   const [isDoctorSpeaking, setIsDoctorSpeaking] = useState(false);
+  const [speakingStaffToast, setSpeakingStaffToast] = useState<StaffCharacter | null>(null);
   const [activeZone, setActiveZone] = useState<'all' | 'dahlia' | 'igd' | 'icu'>('all');
   const [isControlExpanded, setIsControlExpanded] = useState(true);
 
@@ -443,6 +447,110 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
         bedGroup.add(bottle);
       }
 
+      // Bedside Visitor Chair (Roblox Blocky Style)
+      const chairGroup = new THREE.Group();
+      chairGroup.name = `chair_${patient.id}`;
+      chairGroup.position.set(-2.5, 0, 0);
+
+      const chairSeat = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.15, 1.2),
+        new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.5 })
+      );
+      chairSeat.position.set(0, 0.7, 0);
+      chairGroup.add(chairSeat);
+
+      const chairBack = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.9, 0.12),
+        new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.5 })
+      );
+      chairBack.position.set(0, 1.2, -0.55);
+      chairGroup.add(chairBack);
+
+      // Chair 4 Legs
+      const legGeo = new THREE.BoxGeometry(0.1, 0.7, 0.1);
+      const legMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.6 });
+      [
+        [-0.5, 0.35, -0.5],
+        [0.5, 0.35, -0.5],
+        [-0.5, 0.35, 0.5],
+        [0.5, 0.35, 0.5],
+      ].forEach(([lx, ly, lz]) => {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(lx, ly, lz);
+        chairGroup.add(leg);
+      });
+      bedGroup.add(chairGroup);
+
+      // 3D Roblox Family Member Model Sitting on Bedside Chair
+      const familyGroup = new THREE.Group();
+      familyGroup.name = `family_member_${patient.id}`;
+      familyGroup.position.set(-2.5, 0, 0);
+
+      // Family Member Casual Clothes Palette
+      const familyClothesColors = ['#9333ea', '#db2777', '#ea580c', '#0284c7', '#16a34a', '#4f46e5'];
+      const familyColor = familyClothesColors[index % familyClothesColors.length];
+      const familyMat = new THREE.MeshStandardMaterial({ color: familyColor, roughness: 0.6 });
+
+      // Torso (Sitting upright)
+      const fTorso = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.1, 0.6), familyMat);
+      fTorso.position.set(0, 1.35, -0.05);
+      familyGroup.add(fTorso);
+
+      // Head tilted gently toward patient
+      const fHead = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        new THREE.MeshStandardMaterial({ map: createFaceTexture(false), roughness: 0.5 })
+      );
+      fHead.position.set(0, 2.2, 0);
+      fHead.rotation.y = Math.PI * 0.25; // looking at bed
+      familyGroup.add(fHead);
+
+      // Bent Legs in sitting posture
+      const fUpperLegs = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 0.3, 0.8),
+        new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.7 })
+      );
+      fUpperLegs.position.set(0, 0.85, 0.35);
+      familyGroup.add(fUpperLegs);
+
+      const fLowerLegs = new THREE.Mesh(
+        new THREE.BoxGeometry(0.85, 0.7, 0.3),
+        new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.7 })
+      );
+      fLowerLegs.position.set(0, 0.35, 0.7);
+      familyGroup.add(fLowerLegs);
+
+      // Floating Mini Label for Family Member
+      const fLabelCanvas = document.createElement('canvas');
+      fLabelCanvas.width = 256;
+      fLabelCanvas.height = 80;
+      const fCtx = fLabelCanvas.getContext('2d');
+      if (fCtx) {
+        fCtx.fillStyle = 'rgba(88, 28, 135, 0.9)';
+        fCtx.roundRect(10, 10, 236, 60, 14);
+        fCtx.fill();
+        fCtx.strokeStyle = '#e9d5ff';
+        fCtx.lineWidth = 3;
+        fCtx.stroke();
+        fCtx.fillStyle = '#ffffff';
+        fCtx.font = 'bold 22px sans-serif';
+        fCtx.textAlign = 'center';
+        fCtx.fillText(`${patient.familyMember.name}`, 128, 38);
+        fCtx.font = '16px sans-serif';
+        fCtx.fillStyle = '#f3e8ff';
+        fCtx.fillText(`(${patient.familyMember.relation})`, 128, 58);
+      }
+      const fLabelTexture = new THREE.CanvasTexture(fLabelCanvas);
+      fLabelTexture.colorSpace = THREE.SRGBColorSpace;
+      const fLabelSprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: fLabelTexture, depthWrite: false })
+      );
+      fLabelSprite.position.set(0, 2.9, 0);
+      fLabelSprite.scale.set(2.0, 0.65, 1);
+      familyGroup.add(fLabelSprite);
+
+      bedGroup.add(familyGroup);
+
       // Bed Number Text Badge Floating Above
       const badgeCanvas = document.createElement('canvas');
       badgeCanvas.width = 256;
@@ -479,6 +587,152 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
     });
 
     bedMeshesRef.current = bedMap;
+
+    // 5B. Hospital Room Overhead Banners & Zone Signs
+    const createZoneBanner = (title: string, sub: string, x: number, z: number, color: string) => {
+      const bGroup = new THREE.Group();
+      bGroup.position.set(x, 6.2, z);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = color;
+        ctx.roundRect(10, 10, 492, 108, 24);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, 256, 56);
+        ctx.font = '22px sans-serif';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillText(sub, 256, 94);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const banner = new THREE.Mesh(
+        new THREE.BoxGeometry(14, 2.5, 0.4),
+        new THREE.MeshStandardMaterial({ map: texture, roughness: 0.3 })
+      );
+      bGroup.add(banner);
+
+      // Support Posts
+      const pMat = new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.8 });
+      const leftPost = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6.5), pMat);
+      leftPost.position.set(-6.8, -3.2, 0);
+      bGroup.add(leftPost);
+      const rightPost = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6.5), pMat);
+      rightPost.position.set(6.8, -3.2, 0);
+      bGroup.add(rightPost);
+
+      scene.add(bGroup);
+    };
+
+    createZoneBanner('🏥 BANGSAL RAWAT INAP DAHLIA', 'Zone A · Bed 101 s/d 110 (SKP 1 - SKP 6)', -22, -26, '#0284c7');
+    createZoneBanner('🚨 TRIASE MERAH IGD & ISOLASI AIRBORNE', 'Zone B · Bed 111 s/d 120 (Precaution PPI)', 22, -26, '#dc2626');
+    createZoneBanner('⚡ ICU, HEMODIALISA & PENUNJANG K3RS', 'Zone C · Bed 121 s/d 130 (High Alert & Ergonomi)', 0, 11, '#4f46e5');
+
+    // 5C. Hospital Healthcare Staff 3D Roblox Characters
+    const staffPositions: { [key: string]: { x: number; z: number; rotY: number } } = {
+      s1: { x: 0, z: -0.5, rotY: Math.PI }, // Ners Ratna behind nurse station counter
+      s2: { x: 14, z: -16, rotY: -Math.PI / 2 }, // Ners Dimas at IGD entrance
+      s3: { x: 6, z: 12, rotY: 0 }, // dr. Farhan at ICU entrance
+      s4: { x: -8, z: 12, rotY: 0 }, // Apoteker Sarah at Farmasi satelit
+      s5: { x: 0, z: 6, rotY: 0 }, // Pak Joko Sanitarian in corridor
+      s6: { x: 26, z: -16, rotY: -Math.PI / 2 }, // Ners Bella IPCN at Airborne Isolasi
+    };
+
+    HOSPITAL_STAFF.forEach((staff) => {
+      const pos = staffPositions[staff.id] || { x: 0, z: 0, rotY: 0 };
+      const sGroup = new THREE.Group();
+      sGroup.name = `hospital_staff_${staff.id}`;
+      sGroup.position.set(pos.x, 0, pos.z);
+      sGroup.rotation.y = pos.rotY;
+
+      // Uniform color
+      const uniformMat = new THREE.MeshStandardMaterial({
+        color: staff.avatarColor,
+        roughness: 0.4,
+      });
+
+      // Torso
+      const sTorso = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 0.7), uniformMat);
+      sTorso.position.set(0, 1.9, 0);
+      sTorso.castShadow = !isSoftwareGl;
+      sGroup.add(sTorso);
+
+      // Head
+      const sHead = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 1.0, 1.0),
+        new THREE.MeshStandardMaterial({ map: createFaceTexture(true), roughness: 0.5 })
+      );
+      sHead.position.set(0, 3.2, 0);
+      sGroup.add(sHead);
+
+      // Legs
+      const sLegMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.6 });
+      const sLeftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.3, 0.6), sLegMat);
+      sLeftLeg.position.set(-0.35, 0.65, 0);
+      sGroup.add(sLeftLeg);
+
+      const sRightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.3, 0.6), sLegMat);
+      sRightLeg.position.set(0.35, 0.65, 0);
+      sGroup.add(sRightLeg);
+
+      // Arms
+      const sLeftArm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.3, 0.55), uniformMat);
+      sLeftArm.position.set(-1.05, 1.9, 0);
+      sGroup.add(sLeftArm);
+
+      const sRightArm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.3, 0.55), uniformMat);
+      sRightArm.position.set(1.05, 1.9, 0);
+      sGroup.add(sRightArm);
+
+      // Special prop for Pak Joko (cleaning cart)
+      if (staff.id === 's5') {
+        const cart = new THREE.Mesh(
+          new THREE.BoxGeometry(1.2, 1.0, 1.6),
+          new THREE.MeshStandardMaterial({ color: '#ca8a04', roughness: 0.4 })
+        );
+        cart.position.set(1.4, 0.5, 0.5);
+        sGroup.add(cart);
+      }
+
+      // Floating Staff Name Badge
+      const sLabelCanvas = document.createElement('canvas');
+      sLabelCanvas.width = 384;
+      sLabelCanvas.height = 100;
+      const sCtx = sLabelCanvas.getContext('2d');
+      if (sCtx) {
+        sCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        sCtx.roundRect(10, 10, 364, 80, 18);
+        sCtx.fill();
+        sCtx.strokeStyle = staff.avatarColor;
+        sCtx.lineWidth = 4;
+        sCtx.stroke();
+        sCtx.fillStyle = '#ffffff';
+        sCtx.font = 'bold 26px sans-serif';
+        sCtx.textAlign = 'center';
+        sCtx.fillText(staff.name, 192, 46);
+        sCtx.font = '18px sans-serif';
+        sCtx.fillStyle = staff.avatarColor;
+        sCtx.fillText(staff.role, 192, 74);
+      }
+      const sLabelTexture = new THREE.CanvasTexture(sLabelCanvas);
+      sLabelTexture.colorSpace = THREE.SRGBColorSpace;
+      const sLabelSprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: sLabelTexture, depthWrite: false })
+      );
+      sLabelSprite.position.set(0, 4.4, 0);
+      sLabelSprite.scale.set(3.2, 0.85, 1);
+      sGroup.add(sLabelSprite);
+
+      scene.add(sGroup);
+    });
 
     // 6. dr. Juwita Ninda, M.Kes - 3D Roblox Character Model
     const doctorGroup = new THREE.Group();
@@ -654,6 +908,53 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
         for (const hit of intersects) {
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr.parent && curr.parent !== scene) {
+            // Clicked Hospital Staff
+            if (curr.name.startsWith('hospital_staff_')) {
+              const staffId = curr.name.replace('hospital_staff_', '');
+              const foundStaff = HOSPITAL_STAFF.find((s) => s.id === staffId);
+              if (foundStaff) {
+                triggerHaptic('medium');
+                playHospitalSound('beep');
+                setSpeakingStaffToast(foundStaff);
+                stopSpeaking();
+                speakIndonesian(foundStaff.quote, {
+                  pitch: 1.0,
+                  rate: 1.0,
+                });
+                // Smoothly look toward staff
+                const targetPos = curr.position.clone();
+                playerRotation.current = Math.atan2(
+                  targetPos.x - playerPosition.current.x,
+                  targetPos.z - playerPosition.current.z
+                );
+              }
+              return;
+            }
+
+            // Clicked Bedside Family Member
+            if (curr.name.startsWith('family_member_')) {
+              const patientId = parseInt(curr.name.replace('family_member_', ''), 10);
+              const foundPatient = PATIENTS_DATA.find((p) => p.id === patientId);
+              if (foundPatient) {
+                triggerHaptic('medium');
+                playHospitalSound('beep');
+                setSelectedPatient(foundPatient);
+                onSelectPatient(foundPatient);
+
+                stopSpeaking();
+                setIsFamilySpeaking(true);
+                speakIndonesian(foundPatient.familyMember.voicePrompt, {
+                  pitch: foundPatient.familyMember.voicePitch,
+                  rate: 0.95,
+                  onStart: () => setIsFamilySpeaking(true),
+                  onEnd: () => setIsFamilySpeaking(false),
+                  onError: () => setIsFamilySpeaking(false),
+                });
+              }
+              return;
+            }
+
+            // Clicked Patient Bed
             if (curr.name.startsWith('patient_bed_')) {
               const patientId = parseInt(curr.name.replace('patient_bed_', ''), 10);
               const foundPatient = PATIENTS_DATA.find((p) => p.id === patientId);
@@ -851,7 +1152,7 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
     }
   };
 
-  // Speak patient voice
+  // Speak patient voice with authentic emotion
   const handleSpeakPatient = () => {
     triggerHaptic('light');
     if (isPlayingVoice) {
@@ -859,6 +1160,9 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
       setIsPlayingVoice(false);
       return;
     }
+    stopSpeaking();
+    setIsFamilySpeaking(false);
+    setIsDoctorSpeaking(false);
 
     playHospitalSound('beep');
     setIsPlayingVoice(true);
@@ -871,6 +1175,29 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
     });
   };
 
+  // Speak bedside family voice
+  const handleSpeakFamily = () => {
+    triggerHaptic('light');
+    if (isFamilySpeaking) {
+      stopSpeaking();
+      setIsFamilySpeaking(false);
+      return;
+    }
+    stopSpeaking();
+    setIsPlayingVoice(false);
+    setIsDoctorSpeaking(false);
+
+    playHospitalSound('beep');
+    setIsFamilySpeaking(true);
+    speakIndonesian(selectedPatient.familyMember.voicePrompt, {
+      pitch: selectedPatient.familyMember.voicePitch,
+      rate: 0.95,
+      onStart: () => setIsFamilySpeaking(true),
+      onEnd: () => setIsFamilySpeaking(false),
+      onError: () => setIsFamilySpeaking(false),
+    });
+  };
+
   // Doctor lecture / guidance voice
   const handleDoctorSpeak = () => {
     triggerHaptic('medium');
@@ -879,6 +1206,9 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
       setIsDoctorSpeaking(false);
       return;
     }
+    stopSpeaking();
+    setIsPlayingVoice(false);
+    setIsFamilySpeaking(false);
 
     playHospitalSound('beep');
     setIsDoctorSpeaking(true);
@@ -1018,6 +1348,41 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
         </button>
       </div>
 
+      {/* Hospital Staff Active Speech Toast Banner */}
+      {speakingStaffToast && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-lg bg-slate-900/95 border-2 border-sky-500 rounded-2xl p-3 shadow-2xl z-40 flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-md text-xs"
+              style={{ backgroundColor: speakingStaffToast.avatarColor }}
+            >
+              {speakingStaffToast.badge}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white truncate">{speakingStaffToast.name}</span>
+                <span className="text-[10px] text-sky-400 font-medium truncate">· {speakingStaffToast.role}</span>
+              </div>
+              <p className="text-xs italic text-slate-200 mt-0.5 leading-relaxed">
+                "{speakingStaffToast.quote}"
+              </p>
+              <span className="text-[10px] text-slate-400 block mt-1">
+                📍 Posisi: {speakingStaffToast.station}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              stopSpeaking();
+              setSpeakingStaffToast(null);
+            }}
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 shrink-0 text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Consolidated Bottom Dock: Selected Bedside Patient Overview & Actions */}
       <div
         className={`absolute bottom-3 left-1/2 -translate-x-1/2 w-[94%] max-w-4xl bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3 sm:p-4 shadow-2xl transition-all duration-300 z-20 ${
@@ -1035,7 +1400,7 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           {/* Bed & Patient Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-sky-600 text-white">
                 {selectedPatient.bedNumber}
               </span>
@@ -1057,6 +1422,11 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
               >
                 Bahaya {selectedPatient.hazardType}
               </span>
+              {/* Emotion Badge */}
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 inline-flex items-center gap-1">
+                <span>{selectedPatient.emotionEmoji}</span>
+                <span>{selectedPatient.emotion}</span>
+              </span>
             </div>
 
             <div className="flex items-center gap-2 mt-1">
@@ -1068,13 +1438,27 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
               </span>
             </div>
 
+            {/* Bedside Family member & Attending Staff line */}
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-300">
+              <span className="text-purple-300 font-medium flex items-center gap-1">
+                <Users className="w-3 h-3 text-purple-400" />
+                Penunggu: {selectedPatient.familyMember.name} ({selectedPatient.familyMember.relation})
+              </span>
+              <span className="text-slate-500">·</span>
+              <span className="text-sky-300 font-medium flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-sky-400" />
+                Nakes: {selectedPatient.attendingStaff.name}
+              </span>
+            </div>
+
             <p className="text-xs text-amber-300/90 truncate mt-0.5">
               ⚠️ {selectedPatient.nurseSafetyDilemma}
             </p>
           </div>
 
           {/* Quick Voice & Case Interaction Buttons */}
-          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+            {/* Patient Voice Button */}
             <button
               onClick={handleSpeakPatient}
               className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors ${
@@ -1082,11 +1466,27 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
                   ? 'bg-rose-500 text-white animate-pulse'
                   : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
               }`}
+              title="Dengarkan Suara Pasien Beremosi"
             >
               {isPlayingVoice ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              <span>{isPlayingVoice ? 'Stop Suara' : 'Suara Pasien'}</span>
+              <span>{isPlayingVoice ? 'Stop Suara' : `Suara Pasien ${selectedPatient.emotionEmoji}`}</span>
             </button>
 
+            {/* Bedside Family Voice Button */}
+            <button
+              onClick={handleSpeakFamily}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                isFamilySpeaking
+                  ? 'bg-rose-500 text-white animate-pulse'
+                  : 'bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-800'
+              }`}
+              title="Dengarkan Suara Keluarga Penunggu"
+            >
+              {isFamilySpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              <span>{isFamilySpeaking ? 'Stop Keluarga' : 'Suara Keluarga'}</span>
+            </button>
+
+            {/* Doctor Lecture Button */}
             <button
               onClick={handleDoctorSpeak}
               className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors ${
@@ -1094,17 +1494,19 @@ export const RobloxWorld3D: React.FC<RobloxWorld3DProps> = ({
                   ? 'bg-rose-500 text-white animate-pulse'
                   : 'bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700'
               }`}
+              title="Bimbingan Dosen dr. Juwita Ninda, M.Kes"
             >
               <Stethoscope className="w-4 h-4" />
-              <span>{isDoctorSpeaking ? 'Stop Dokter' : 'Bimbingan dr. Juwita'}</span>
+              <span>{isDoctorSpeaking ? 'Stop Dokter' : 'dr. Juwita'}</span>
             </button>
 
+            {/* Open AI Modal Button */}
             <button
               onClick={() => onOpenConsultation(selectedPatient)}
               className="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 transition-colors shadow-md"
             >
               <MessageSquare className="w-4 h-4" />
-              <span>Tanya AI & Tangani</span>
+              <span>Interaksi 3 Arah</span>
             </button>
           </div>
         </div>

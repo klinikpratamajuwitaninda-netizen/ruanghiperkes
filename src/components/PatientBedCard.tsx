@@ -41,6 +41,10 @@ export const PatientBedCard: React.FC<PatientBedCardProps> = ({
   const [actionFeedback, setActionFeedback] = useState<PatientAction | null>(null);
   const [isResolved, setIsResolved] = useState(patient.status === 'Aman Terkendali');
 
+  const [isPlayingFamilyVoice, setIsPlayingFamilyVoice] = useState(false);
+  const [isPlayingStaffVoice, setIsPlayingStaffVoice] = useState(false);
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
+
   const handleSpeakPatientVoice = () => {
     triggerHaptic('light');
     if (isPlayingVoice) {
@@ -48,6 +52,9 @@ export const PatientBedCard: React.FC<PatientBedCardProps> = ({
       setIsPlayingVoice(false);
       return;
     }
+    stopSpeaking();
+    setIsPlayingFamilyVoice(false);
+    setIsPlayingStaffVoice(false);
 
     playHospitalSound('beep');
     setIsPlayingVoice(true);
@@ -57,6 +64,50 @@ export const PatientBedCard: React.FC<PatientBedCardProps> = ({
       onStart: () => setIsPlayingVoice(true),
       onEnd: () => setIsPlayingVoice(false),
       onError: () => setIsPlayingVoice(false),
+    });
+  };
+
+  const handleSpeakFamilyVoice = () => {
+    triggerHaptic('light');
+    if (isPlayingFamilyVoice) {
+      stopSpeaking();
+      setIsPlayingFamilyVoice(false);
+      return;
+    }
+    stopSpeaking();
+    setIsPlayingVoice(false);
+    setIsPlayingStaffVoice(false);
+
+    playHospitalSound('beep');
+    setIsPlayingFamilyVoice(true);
+    speakIndonesian(patient.familyMember.voicePrompt, {
+      pitch: patient.familyMember.voicePitch,
+      rate: 0.95,
+      onStart: () => setIsPlayingFamilyVoice(true),
+      onEnd: () => setIsPlayingFamilyVoice(false),
+      onError: () => setIsPlayingFamilyVoice(false),
+    });
+  };
+
+  const handleSpeakStaffVoice = () => {
+    triggerHaptic('light');
+    if (isPlayingStaffVoice) {
+      stopSpeaking();
+      setIsPlayingStaffVoice(false);
+      return;
+    }
+    stopSpeaking();
+    setIsPlayingVoice(false);
+    setIsPlayingFamilyVoice(false);
+
+    playHospitalSound('beep');
+    setIsPlayingStaffVoice(true);
+    speakIndonesian(patient.attendingStaff.quote, {
+      pitch: 1.0,
+      rate: 1.0,
+      onStart: () => setIsPlayingStaffVoice(true),
+      onEnd: () => setIsPlayingStaffVoice(false),
+      onError: () => setIsPlayingStaffVoice(false),
     });
   };
 
@@ -115,6 +166,16 @@ export const PatientBedCard: React.FC<PatientBedCardProps> = ({
             <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">
               {patient.name} <span className="text-sm font-normal text-slate-500">({patient.age} th / {patient.gender === 'L' ? 'Pria' : 'Wanita'})</span>
             </h3>
+            {/* Emotion indicator badge */}
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                <span>{patient.emotionEmoji}</span>
+                <span>{patient.emotion}</span>
+              </span>
+              <span className="text-[11px] text-slate-400 italic">
+                {patient.emotionDescription}
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -191,29 +252,118 @@ export const PatientBedCard: React.FC<PatientBedCardProps> = ({
           </p>
         </div>
 
-        {/* Spoken Voice Section */}
-        <div className="mt-3 p-2.5 rounded-xl bg-sky-50/60 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/30 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 min-w-0">
-            <button
-              onClick={handleSpeakPatientVoice}
-              className={`p-2 rounded-lg transition-transform active:scale-95 flex items-center justify-center ${
-                isPlayingVoice
-                  ? 'bg-rose-500 text-white animate-pulse'
-                  : 'bg-sky-600 text-white hover:bg-sky-700'
-              }`}
-              title={isPlayingVoice ? 'Hentikan Suara' : 'Dengarkan Suara Pasien'}
-            >
-              {isPlayingVoice ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            <div className="truncate">
-              <span className="text-[11px] font-semibold text-sky-900 dark:text-sky-300 block">
-                {isPlayingVoice ? 'Pasien Sedang Berbicara...' : 'Suara Keluhan Pasien:'}
-              </span>
-              <p className="italic text-slate-600 dark:text-slate-400 truncate text-[11px]">
-                "{patient.patientVoicePrompt}"
-              </p>
+        {/* Audio Interaction: Pasien, Keluarga, & Nakes */}
+        <div className="mt-3 space-y-2">
+          {/* Patient Voice */}
+          <div className="p-2.5 rounded-xl bg-sky-50/70 dark:bg-sky-950/25 border border-sky-100 dark:border-sky-900/40 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 min-w-0">
+              <button
+                onClick={handleSpeakPatientVoice}
+                className={`p-2 rounded-lg shrink-0 transition-transform active:scale-95 flex items-center justify-center ${
+                  isPlayingVoice
+                    ? 'bg-rose-500 text-white animate-pulse'
+                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                }`}
+                title={isPlayingVoice ? 'Hentikan Suara' : 'Dengarkan Suara Pasien'}
+              >
+                {isPlayingVoice ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <div className="truncate">
+                <span className="text-[11px] font-semibold text-sky-900 dark:text-sky-300 block">
+                  {isPlayingVoice ? 'Pasien Sedang Berbicara...' : `Suara ${patient.name} (${patient.emotion}):`}
+                </span>
+                <p className="italic text-slate-600 dark:text-slate-400 truncate text-[11px]">
+                  "{patient.patientVoicePrompt}"
+                </p>
+              </div>
             </div>
           </div>
+
+          {/* Bedside Family Member Voice */}
+          <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/25 border border-purple-100 dark:border-purple-900/40 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 min-w-0">
+              <button
+                onClick={handleSpeakFamilyVoice}
+                className={`p-2 rounded-lg shrink-0 transition-transform active:scale-95 flex items-center justify-center ${
+                  isPlayingFamilyVoice
+                    ? 'bg-rose-500 text-white animate-pulse'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+                title={isPlayingFamilyVoice ? 'Hentikan Suara Keluarga' : 'Dengarkan Suara Keluarga Penunggu'}
+              >
+                {isPlayingFamilyVoice ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <div className="truncate">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-purple-900 dark:text-purple-300">
+                    {patient.familyMember.name}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium">
+                    {patient.familyMember.relation}
+                  </span>
+                </div>
+                <p className="italic text-slate-600 dark:text-slate-400 truncate text-[11px]">
+                  "{patient.familyMember.voicePrompt}"
+                </p>
+                <span className="text-[10px] text-purple-700 dark:text-purple-400 block mt-0.5 font-medium">
+                  Peran Keselamatan: {patient.familyMember.roleInSafety}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Attending Staff Mini Strip */}
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={handleSpeakStaffVoice}
+                className={`p-1.5 rounded-lg shrink-0 transition-transform active:scale-95 ${
+                  isPlayingStaffVoice
+                    ? 'bg-rose-500 text-white animate-pulse'
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300'
+                }`}
+                title="Dengarkan Komunikasi Nakes"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+              </button>
+              <div className="truncate text-[11px]">
+                <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                  {patient.attendingStaff.name} ({patient.attendingStaff.role})
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 text-[10px] block truncate">
+                  Tugas: {patient.attendingStaff.task}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowRoomDetails(!showRoomDetails)}
+              className="text-[10px] font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 shrink-0 underline"
+            >
+              {showRoomDetails ? 'Tutup Info Ruang' : 'Detail Ruang'}
+            </button>
+          </div>
+
+          {/* Expandable Room Atmosphere & Equipment */}
+          {showRoomDetails && (
+            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 text-xs border border-slate-200 dark:border-slate-700 space-y-1 text-slate-700 dark:text-slate-300">
+              <p className="font-semibold text-slate-900 dark:text-slate-100 text-[11px]">
+                🏥 Suasana Ruang ({patient.roomDetails.roomType}):
+              </p>
+              <p className="text-[11px] italic text-slate-600 dark:text-slate-400">
+                "{patient.roomDetails.atmosphere}"
+              </p>
+              <div className="pt-1">
+                <span className="text-[10px] text-slate-500 font-medium block">Peralatan di Ruangan:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {patient.roomDetails.equipment.map((eq, i) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300">
+                      {eq}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Interactive Nursing Interventions */}

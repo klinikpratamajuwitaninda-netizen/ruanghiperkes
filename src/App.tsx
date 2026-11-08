@@ -189,6 +189,7 @@ export default function App() {
               onOpenSlides={handleOpenSlides}
               onOpenQuiz={() => setActiveTab('quiz')}
               onOpenChecklist={handleOpenChecklist}
+              onOpenAiConsultation={(patient) => handleOpenAiConsultation(patient)}
             />
           </div>
         ) : activeTab === 'ward' ? (

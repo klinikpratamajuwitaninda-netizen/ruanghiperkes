@@ -1,11 +1,13 @@
 /**
  * Natural Speech Synthesis and Audio System for Indonesian Virtual Hospital
+ * Supports Android autoplay unlocking, multi-speaker sequential queues, and voice recognition
  */
 
 // Web Audio Context for medical sounds and tones
 let audioCtx: AudioContext | null = null;
+let isAudioUnlocked = false;
 
-function getAudioContext(): AudioContext | null {
+export function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -14,9 +16,51 @@ function getAudioContext(): AudioContext | null {
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
+}
+
+/**
+ * Explicit user-gesture audio unlocker for Android Chrome and mobile browsers
+ * Satisfies strict mobile autoplay policies
+ */
+export async function unlockAudioSystem(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    // Play ultra-short silent buffer to unlock Web Audio pipeline
+    if (ctx) {
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    }
+
+    // Warm up speech synthesis if available
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const warmUtterance = new SpeechSynthesisUtterance('');
+      warmUtterance.volume = 0;
+      window.speechSynthesis.speak(warmUtterance);
+    }
+
+    isAudioUnlocked = true;
+    return true;
+  } catch (err) {
+    console.warn('Audio unlock warning:', err);
+    return false;
+  }
+}
+
+export function isAudioSystemUnlocked(): boolean {
+  return isAudioUnlocked;
 }
 
 /**
@@ -131,19 +175,41 @@ export interface SpeakOptions {
   onError?: (err: any) => void;
 }
 
+export interface QueuedSpeechItem {
+  id: string;
+  speakerName?: string;
+  text: string;
+  options?: SpeakOptions;
+}
+
+let speechQueue: QueuedSpeechItem[] = [];
+let isQueuePlaying = false;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+
+function findIndonesianVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find(
+      (v) =>
+        v.lang.toLowerCase().includes('id-id') ||
+        v.lang.toLowerCase().includes('id_id') ||
+        v.lang.toLowerCase() === 'id' ||
+        v.name.toLowerCase().includes('indonesia')
+    ) || null
+  );
+}
 
 /**
  * Speaks text using the best matching Indonesian voice from the browser's speech synthesis engine
  */
 export function speakIndonesian(text: string, options: SpeakOptions = {}) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported in this browser.');
     options.onEnd?.();
     return;
   }
 
-  // Cancel any ongoing speech
+  // Cancel existing single utterance
   stopSpeaking();
 
   const utterance = new SpeechSynthesisUtterance(text);
@@ -152,16 +218,7 @@ export function speakIndonesian(text: string, options: SpeakOptions = {}) {
   utterance.rate = options.rate ?? 1.0;
   utterance.volume = options.volume ?? 1.0;
 
-  // Search for available Indonesian voices (e.g. Google Bahasa Indonesia, Android Speech Services, Damayanti, etc.)
-  const voices = window.speechSynthesis.getVoices();
-  const indonesianVoice = voices.find(
-    (v) =>
-      v.lang.toLowerCase().includes('id-id') ||
-      v.lang.toLowerCase().includes('id_id') ||
-      v.lang.toLowerCase() === 'id' ||
-      v.name.toLowerCase().includes('indonesia')
-  );
-
+  const indonesianVoice = findIndonesianVoice();
   if (indonesianVoice) {
     utterance.voice = indonesianVoice;
   }
@@ -186,7 +243,73 @@ export function speakIndonesian(text: string, options: SpeakOptions = {}) {
   window.speechSynthesis.speak(utterance);
 }
 
+/**
+ * Queue multiple speeches sequentially (e.g. for multi-character interactions)
+ * Tn. Hartono speaks first -> Ibu Hartono speaks second -> dr. Juwita speaks third
+ */
+export function queueMultiSpeakerSpeech(
+  items: QueuedSpeechItem[],
+  onQueueComplete?: () => void
+) {
+  stopSpeaking();
+  speechQueue = [...items];
+  playNextInQueue(onQueueComplete);
+}
+
+function playNextInQueue(onQueueComplete?: () => void) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    onQueueComplete?.();
+    return;
+  }
+
+  if (speechQueue.length === 0) {
+    isQueuePlaying = false;
+    onQueueComplete?.();
+    return;
+  }
+
+  isQueuePlaying = true;
+  const item = speechQueue.shift();
+  if (!item) {
+    isQueuePlaying = false;
+    onQueueComplete?.();
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(item.text);
+  utterance.lang = 'id-ID';
+  utterance.pitch = item.options?.pitch ?? 1.0;
+  utterance.rate = item.options?.rate ?? 1.0;
+  utterance.volume = item.options?.volume ?? 1.0;
+
+  const indonesianVoice = findIndonesianVoice();
+  if (indonesianVoice) {
+    utterance.voice = indonesianVoice;
+  }
+
+  utterance.onstart = () => {
+    item.options?.onStart?.();
+  };
+
+  utterance.onend = () => {
+    item.options?.onEnd?.();
+    playNextInQueue(onQueueComplete);
+  };
+
+  utterance.onerror = (e) => {
+    console.warn('Queue item speech error:', e);
+    item.options?.onError?.(e);
+    item.options?.onEnd?.();
+    playNextInQueue(onQueueComplete);
+  };
+
+  activeUtterance = utterance;
+  window.speechSynthesis.speak(utterance);
+}
+
 export function stopSpeaking() {
+  speechQueue = [];
+  isQueuePlaying = false;
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     window.speechSynthesis.cancel();
     activeUtterance = null;
@@ -195,7 +318,7 @@ export function stopSpeaking() {
 
 export function isSpeaking(): boolean {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return false;
-  return window.speechSynthesis.speaking;
+  return window.speechSynthesis.speaking || isQueuePlaying;
 }
 
 /**
@@ -215,25 +338,31 @@ export function createSpeechRecognizer(
     return null;
   }
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'id-ID';
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  try {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID';
+    recognition.continuous = false;
+    recognition.interimResults = false;
 
-  recognition.onresult = (event: any) => {
-    const transcript = event.results?.[0]?.[0]?.transcript || '';
-    if (transcript) {
-      onResult(transcript);
-    }
-  };
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || '';
+      if (transcript) {
+        onResult(transcript);
+      }
+    };
 
-  recognition.onerror = (event: any) => {
-    onError?.(event);
-  };
+    recognition.onerror = (event: any) => {
+      onError?.(event);
+    };
 
-  recognition.onend = () => {
-    onEnd();
-  };
+    recognition.onend = () => {
+      onEnd();
+    };
 
-  return recognition;
+    return recognition;
+  } catch (err) {
+    console.warn('Failed to initialize SpeechRecognition:', err);
+    return null;
+  }
 }
+

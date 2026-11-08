@@ -27,13 +27,17 @@ import {
   stopSpeaking,
   playHospitalSound,
   triggerHaptic,
+  unlockAudioSystem,
+  isAudioSystemUnlocked,
 } from '../utils/speechUtils';
+import { PATIENTS_DATA } from '../data/patientsData';
 
 export interface VirtualHospital3DGameProps {
   onOpenHandbook?: () => void;
   onOpenSlides?: () => void;
   onOpenQuiz?: () => void;
   onOpenChecklist?: () => void;
+  onOpenAiConsultation?: (patient?: any) => void;
 }
 
 interface InteractableEntity {
@@ -57,11 +61,13 @@ export const VirtualHospital3DGame: React.FC<VirtualHospital3DGameProps> = ({
   onOpenSlides,
   onOpenQuiz,
   onOpenChecklist,
+  onOpenAiConsultation,
 }) => {
   // Game state
   const [gameState, setGameState] = useState<'welcome' | 'playing' | 'paused'>('welcome');
   const [currentZone, setCurrentZone] = useState<string>('Koridor Utama');
   const [nearbyEntity, setNearbyEntity] = useState<InteractableEntity | null>(null);
+  const [isAudioUnlockedState, setIsAudioUnlockedState] = useState(isAudioSystemUnlocked());
   const [activeDialogue, setActiveDialogue] = useState<{
     entity: InteractableEntity;
     step: number;
@@ -1462,9 +1468,11 @@ export const VirtualHospital3DGame: React.FC<VirtualHospital3DGameProps> = ({
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
-                onClick={() => {
+                onClick={async () => {
                   triggerHaptic('medium');
                   playHospitalSound('click');
+                  await unlockAudioSystem();
+                  setIsAudioUnlockedState(true);
                   setGameState('playing');
                 }}
                 className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-sm shadow-xl flex items-center justify-center gap-2 transition-transform active:scale-95"
@@ -1536,6 +1544,22 @@ export const VirtualHospital3DGame: React.FC<VirtualHospital3DGameProps> = ({
 
           {/* Top-Right HUD Controls: Points, Sound, Pause */}
           <div className="flex items-center gap-2 pointer-events-auto">
+            {/* Audio unlock prompt for mobile */}
+            {!isAudioUnlockedState && (
+              <button
+                onClick={async () => {
+                  await unlockAudioSystem();
+                  setIsAudioUnlockedState(true);
+                  playHospitalSound('beep');
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs shadow-md animate-bounce flex items-center gap-1.5"
+                title="Aktifkan audio untuk mendengar suara natural"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>AKTIFKAN AUDIO</span>
+              </button>
+            )}
+
             {/* Points Badge */}
             <div className="bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 shadow-md backdrop-blur-md flex items-center gap-1.5">
               <span>⭐ {safetyPoints} Poin</span>
@@ -1695,6 +1719,21 @@ export const VirtualHospital3DGame: React.FC<VirtualHospital3DGameProps> = ({
                   <span>{opt.text}</span>
                 </button>
               ))}
+
+              {/* Seamless Jump to 3-Way Shared Conversation */}
+              {onOpenAiConsultation && (
+                <button
+                  onClick={() => {
+                    stopSpeaking();
+                    setActiveDialogue(null);
+                    onOpenAiConsultation(PATIENTS_DATA[0]);
+                  }}
+                  className="w-full mt-2 text-center py-2.5 px-3 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white text-xs font-bold shadow-md hover:from-sky-500 hover:to-indigo-500 transition-all flex items-center justify-center gap-2"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Buka Diskusi Terpadu 3 Arah (Pasien, dr. Juwita & Keluarga)</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
